@@ -27,7 +27,7 @@ cp .env.example .env
 
 Edit `.env` and add your keys:
 
-```
+```sh
 DISCORD_TOKEN=your_discord_bot_token
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
@@ -68,7 +68,7 @@ deno task start
 
 ## Example
 
-```
+```sh
 /askall What's the best programming language for beginners?
 ```
 

@@ -6,9 +6,9 @@ import {
   ApplicationCommandOptionTypes,
   type Bot,
   type Interaction,
-} from "https://deno.land/x/discordeno@18.0.1/mod.ts";
+} from "@discordeno/mod.ts";
 
-import { load } from "https://deno.land/std@0.208.0/dotenv/mod.ts";
+import { load } from "std/dotenv/mod.ts";
 import { askClaude, askChatGPT, askGemini, askAll } from "./src/ai.ts";
 
 // Load .env file
@@ -24,7 +24,7 @@ console.log("🚀 Starting Disrupt...");
 
 const bot = createBot({
   token,
-  intents: Intents.Guilds | Intents.GuildMessages | Intents.MessageContent,
+  intents: Intents.Guilds,
   events: {
     ready: (bot, payload) => {
       console.log(`✅ ${payload.user.username} is online!`);

@@ -1,0 +1,12 @@
+{
+  "name": "disrupt",
+  "version": "1.0.0",
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-read --watch mod.ts",
+    "start": "deno run --allow-net --allow-env --allow-read mod.ts"
+  },
+  "imports": {
+    "@discordeno/": "https://deno.land/x/discordeno@18.0.1/",
+    "std/": "https://deno.land/std@0.208.0/"
+  }
+}

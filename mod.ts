@@ -9,7 +9,7 @@ import {
 } from "@discordeno/mod.ts";
 import { load } from "std/dotenv/mod.ts";
 
-import { claude, chatgpt, gemini, askAll } from "./src/ai/index.ts";
+import { claude, chatgpt, gemini, grokFunny, grokSerious, grokChaos, askAll } from "./src/ai/index.ts";
 import { runDebate } from "./src/debate.ts";
 import { generateImage } from "./src/image.ts";
 
@@ -27,7 +27,10 @@ const commands = [
   { name: "claude", description: "Ask Claude (Anthropic)", options: [promptOption()] },
   { name: "gpt", description: "Ask ChatGPT (OpenAI)", options: [promptOption()] },
   { name: "gemini", description: "Ask Gemini (Google)", options: [promptOption()] },
-  { name: "askall", description: "Ask all three AI models", options: [promptOption()] },
+  { name: "grok", description: "Ask Grok - witty and sarcastic (xAI)", options: [promptOption()] },
+  { name: "grok-serious", description: "Ask Grok - analytical and direct (xAI)", options: [promptOption()] },
+  { name: "grok-chaos", description: "Ask Grok - chaotic devil's advocate (xAI)", options: [promptOption()] },
+  { name: "askall", description: "Ask all AI models", options: [promptOption()] },
   { name: "imagine", description: "Generate an image with DALL-E 3", options: [promptOption("Describe the image")] },
   {
     name: "debate",
@@ -98,6 +101,18 @@ async function handleCommand(bot: Bot, interaction: Interaction) {
       }
       case "gemini": {
         const r = await gemini.ask(prompt);
+        return edit(bot, interaction, format(r));
+      }
+      case "grok": {
+        const r = await grokFunny.ask(prompt);
+        return edit(bot, interaction, format(r));
+      }
+      case "grok-serious": {
+        const r = await grokSerious.ask(prompt);
+        return edit(bot, interaction, format(r));
+      }
+      case "grok-chaos": {
+        const r = await grokChaos.ask(prompt);
         return edit(bot, interaction, format(r));
       }
       case "askall": {

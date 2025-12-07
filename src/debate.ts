@@ -39,12 +39,12 @@ export async function runDebate(
   }
 }
 
-async function askModel(model: string, prompt: string): Promise<AIResponse> {
+function askModel(model: string, prompt: string): Promise<AIResponse> {
   switch (model) {
     case "Claude": return askClaude(prompt);
     case "ChatGPT": return askChatGPT(prompt);
     case "Gemini": return askGemini(prompt);
-    default: return { model, content: "", error: "Unknown model" };
+    default: return Promise.resolve({ model, content: "", error: "Unknown model" });
   }
 }
 

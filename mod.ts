@@ -6,8 +6,8 @@ import {
   ApplicationCommandOptionTypes,
   type Bot,
   type Interaction,
-} from "https://deno.land/x/discordeno@18.0.1/mod.ts";
-import { load } from "https://deno.land/std@0.208.0/dotenv/mod.ts";
+} from "@discordeno/mod.ts";
+import { load } from "std/dotenv/mod.ts";
 
 import { askClaude, askChatGPT, askGemini, askAll } from "./src/ai.ts";
 import { runDebate } from "./src/debate.ts";

@@ -7,30 +7,42 @@ import {
   type Bot,
   type Interaction,
 } from "https://deno.land/x/discordeno@18.0.1/mod.ts";
-
 import { load } from "https://deno.land/std@0.208.0/dotenv/mod.ts";
-import {
-  askClaude,
-  askChatGPT,
-  askGemini,
-  askAll,
-  runConversation,
-  generateImage,
-} from "./src/ai.ts";
+
+import { askClaude, askChatGPT, askGemini, askAll, generateImage } from "./src/ai.ts";
+import { runDebate } from "./src/debate.ts";
 
 // Load .env file
 await load({ export: true });
 
 const token = Deno.env.get("DISCORD_TOKEN");
 if (!token) {
-  console.error(
-    "❌ DISCORD_TOKEN is required! Copy .env.example to .env and add your token."
-  );
+  console.error("❌ DISCORD_TOKEN is required!");
   Deno.exit(1);
 }
 
-console.log("🚀 Starting Disrupt...");
+// Slash command definitions
+const commands = [
+  { name: "claude", description: "Ask Claude (Anthropic)", options: [promptOption()] },
+  { name: "gpt", description: "Ask ChatGPT (OpenAI)", options: [promptOption()] },
+  { name: "gemini", description: "Ask Gemini (Google)", options: [promptOption()] },
+  { name: "askall", description: "Ask all three AI models", options: [promptOption()] },
+  { name: "imagine", description: "Generate an image with DALL-E 3", options: [promptOption("Describe the image")] },
+  {
+    name: "debate",
+    description: "Watch the AIs debate a topic",
+    options: [
+      { name: "topic", description: "The topic to debate", type: ApplicationCommandOptionTypes.String, required: true },
+      { name: "rounds", description: "Number of rounds (1-5)", type: ApplicationCommandOptionTypes.Integer, required: false },
+    ],
+  },
+];
 
+function promptOption(desc = "Your question or prompt") {
+  return { name: "prompt", description: desc, type: ApplicationCommandOptionTypes.String, required: true };
+}
+
+// Bot setup
 const bot = createBot({
   token,
   intents: Intents.Guilds | Intents.GuildMessages,
@@ -39,281 +51,98 @@ const bot = createBot({
       console.log(`✅ ${payload.user.username} is online!`);
       registerCommands(bot);
     },
-    interactionCreate: async (bot, interaction) => {
-      await handleInteraction(bot, interaction);
-    },
+    interactionCreate: (bot, interaction) => handleCommand(bot, interaction),
   },
 });
 
-// Register slash commands
 async function registerCommands(bot: Bot) {
-  const commands = [
-    {
-      name: "claude",
-      description: "Ask Claude (Anthropic)",
-      options: [
-        {
-          name: "prompt",
-          description: "Your question or prompt",
-          type: ApplicationCommandOptionTypes.String,
-          required: true,
-        },
-      ],
-    },
-    {
-      name: "gpt",
-      description: "Ask ChatGPT (OpenAI)",
-      options: [
-        {
-          name: "prompt",
-          description: "Your question or prompt",
-          type: ApplicationCommandOptionTypes.String,
-          required: true,
-        },
-      ],
-    },
-    {
-      name: "gemini",
-      description: "Ask Gemini (Google)",
-      options: [
-        {
-          name: "prompt",
-          description: "Your question or prompt",
-          type: ApplicationCommandOptionTypes.String,
-          required: true,
-        },
-      ],
-    },
-    {
-      name: "askall",
-      description: "Ask all three AI models and compare responses",
-      options: [
-        {
-          name: "prompt",
-          description: "Your question or prompt",
-          type: ApplicationCommandOptionTypes.String,
-          required: true,
-        },
-      ],
-    },
-    {
-      name: "debate",
-      description: "Watch the AIs debate a topic with each other",
-      options: [
-        {
-          name: "topic",
-          description: "The topic for the AIs to debate",
-          type: ApplicationCommandOptionTypes.String,
-          required: true,
-        },
-        {
-          name: "rounds",
-          description: "Number of rounds (1-5, default 2)",
-          type: ApplicationCommandOptionTypes.Integer,
-          required: false,
-        },
-      ],
-    },
-    {
-      name: "imagine",
-      description: "Generate an image with DALL-E 3",
-      options: [
-        {
-          name: "prompt",
-          description: "Describe the image you want to create",
-          type: ApplicationCommandOptionTypes.String,
-          required: true,
-        },
-      ],
-    },
-  ];
-
   try {
-    // Use guild commands for instant updates (replace with your server ID)
     const guildId = Deno.env.get("DISCORD_GUILD_ID");
     if (guildId) {
-      await bot.helpers.upsertGuildApplicationCommands(
-        BigInt(guildId),
-        commands
-      );
-      console.log("✅ Slash commands registered to guild!");
+      await bot.helpers.upsertGuildApplicationCommands(BigInt(guildId), commands);
+      console.log("✅ Commands registered to guild");
     } else {
       await bot.helpers.upsertGlobalApplicationCommands(commands);
-      console.log(
-        "✅ Slash commands registered globally (may take up to 1 hour)!"
-      );
+      console.log("✅ Commands registered globally");
     }
-  } catch (error) {
-    console.error("❌ Failed to register commands:", error);
+  } catch (e) {
+    console.error("❌ Failed to register commands:", e);
   }
 }
 
-// Handle slash command interactions
-async function handleInteraction(bot: Bot, interaction: Interaction) {
+async function handleCommand(bot: Bot, interaction: Interaction) {
   if (interaction.type !== InteractionTypes.ApplicationCommand) return;
 
-  const commandName = interaction.data?.name;
+  const name = interaction.data?.name;
   const options = interaction.data?.options || [];
   const prompt = (options.find((o) => o.name === "prompt")?.value ||
     options.find((o) => o.name === "topic")?.value) as string;
 
   if (!prompt) {
-    await bot.helpers.sendInteractionResponse(
-      interaction.id,
-      interaction.token,
-      {
-        type: 4,
-        data: { content: "❌ Please provide a prompt!" },
-      }
-    );
-    return;
+    return respond(bot, interaction, "❌ Please provide a prompt!");
   }
 
-  // Defer the response (AI calls can take a few seconds)
-  await bot.helpers.sendInteractionResponse(interaction.id, interaction.token, {
-    type: 5, // Deferred response
-  });
+  // Defer response (AI calls take time)
+  await bot.helpers.sendInteractionResponse(interaction.id, interaction.token, { type: 5 });
 
   try {
-    let responseContent: string;
-
-    switch (commandName) {
+    switch (name) {
       case "claude": {
-        const result = await askClaude(prompt);
-        responseContent = formatResponse(
-          "Claude",
-          result.content,
-          result.error
-        );
-        break;
+        const r = await askClaude(prompt);
+        return edit(bot, interaction, format(r));
       }
       case "gpt": {
-        const result = await askChatGPT(prompt);
-        responseContent = formatResponse(
-          "ChatGPT",
-          result.content,
-          result.error
-        );
-        break;
+        const r = await askChatGPT(prompt);
+        return edit(bot, interaction, format(r));
       }
       case "gemini": {
-        const result = await askGemini(prompt);
-        responseContent = formatResponse(
-          "Gemini",
-          result.content,
-          result.error
-        );
-        break;
+        const r = await askGemini(prompt);
+        return edit(bot, interaction, format(r));
       }
       case "askall": {
         const results = await askAll(prompt);
-        responseContent = formatAllResponses(prompt, results);
-        break;
+        const text = results.map((r) => format(r)).join("\n\n");
+        return edit(bot, interaction, `**Prompt:** ${prompt}\n\n${text}`);
       }
       case "debate": {
-        const rounds = Math.min(
-          5,
-          Math.max(
-            1,
-            (options.find((o) => o.name === "rounds")?.value as number) || 2
-          )
-        );
+        const rounds = Math.min(5, Math.max(1, (options.find((o) => o.name === "rounds")?.value as number) || 2));
+        await edit(bot, interaction, `🎙️ **AI Debate: ${prompt}**`);
 
-        // Send header as initial response
-        await bot.helpers.editOriginalInteractionResponse(interaction.token, {
-          content: `🎙️ **AI Debate: ${prompt}**`,
+        await runDebate(prompt, rounds, async (turn) => {
+          const msg = turn.error ? `**${turn.model}:** ❌ ${turn.error}` : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
+          await bot.helpers.sendMessage(interaction.channelId!, { content: msg });
         });
-
-        // Send each turn as a separate message in real-time
-        const channelId = interaction.channelId!;
-        await runConversation(prompt, rounds, async (turn) => {
-          const msg = turn.error
-            ? `**${turn.model}:** ❌ ${turn.error}`
-            : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
-          await bot.helpers.sendMessage(channelId, { content: msg });
-        });
-
-        return; // Skip the normal response handling
+        return;
       }
       case "imagine": {
-        const result = await generateImage(prompt);
+        const r = await generateImage(prompt);
+        if (r.error) return edit(bot, interaction, `❌ ${r.error}`);
 
-        if (result.error) {
-          responseContent = `❌ Image generation failed: ${result.error}`;
-        } else {
-          // Send the image as an embed
-          await bot.helpers.editOriginalInteractionResponse(interaction.token, {
-            content: `🎨 **Prompt:** ${prompt}`,
-            embeds: [
-              {
-                image: { url: result.imageUrl },
-                footer: result.revisedPrompt
-                  ? {
-                      text: `DALL-E revised: ${result.revisedPrompt.slice(
-                        0,
-                        200
-                      )}`,
-                    }
-                  : undefined,
-              },
-            ],
-          });
-          return; // Skip the normal response handling
-        }
-        break;
+        return bot.helpers.editOriginalInteractionResponse(interaction.token, {
+          content: `🎨 **Prompt:** ${prompt}`,
+          embeds: [{ image: { url: r.imageUrl }, footer: r.revisedPrompt ? { text: r.revisedPrompt.slice(0, 200) } : undefined }],
+        });
       }
       default:
-        responseContent = "❌ Unknown command";
+        return edit(bot, interaction, "❌ Unknown command");
     }
-
-    // Discord has a 2000 char limit, so truncate if needed
-    if (responseContent.length > 2000) {
-      responseContent = responseContent.substring(0, 1997) + "...";
-    }
-
-    await bot.helpers.editOriginalInteractionResponse(interaction.token, {
-      content: responseContent,
-    });
-  } catch (error) {
-    console.error("Error handling command:", error);
-    await bot.helpers.editOriginalInteractionResponse(interaction.token, {
-      content: `❌ Error: ${String(error)}`,
-    });
+  } catch (e) {
+    console.error("Command error:", e);
+    return edit(bot, interaction, `❌ Error: ${e}`);
   }
 }
 
-function formatResponse(
-  model: string,
-  content: string,
-  error?: string
-): string {
-  if (error) {
-    return `**${model}** ❌\n\`\`\`${error}\`\`\``;
-  }
-  return `**${model}**\n>>> ${content}`;
+function format(r: { model: string; content: string; error?: string }): string {
+  return r.error ? `**${r.model}** ❌ ${r.error}` : `**${r.model}**\n>>> ${r.content}`;
 }
 
-function formatAllResponses(
-  prompt: string,
-  results: { model: string; content: string; error?: string }[]
-): string {
-  const lines = [`**Prompt:** ${prompt}\n`];
-
-  for (const result of results) {
-    if (result.error) {
-      lines.push(`**${result.model}** ❌ ${result.error}\n`);
-    } else {
-      // Truncate each response to ~500 chars for askall
-      const truncated =
-        result.content.length > 500
-          ? result.content.substring(0, 497) + "..."
-          : result.content;
-      lines.push(`**${result.model}**\n${truncated}\n`);
-    }
-  }
-
-  return lines.join("\n");
+function respond(bot: Bot, i: Interaction, content: string) {
+  return bot.helpers.sendInteractionResponse(i.id, i.token, { type: 4, data: { content } });
 }
 
-// Start the bot
+function edit(bot: Bot, i: Interaction, content: string) {
+  return bot.helpers.editOriginalInteractionResponse(i.token, { content: content.slice(0, 2000) });
+}
+
+console.log("🚀 Starting Disrupt...");
 await startBot(bot);

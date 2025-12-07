@@ -1,4 +1,4 @@
-// API clients for Claude, ChatGPT, and Gemini
+// AI API clients
 
 export interface AIResponse {
   model: string;
@@ -6,15 +6,12 @@ export interface AIResponse {
   error?: string;
 }
 
-// Claude (Anthropic)
 export async function askClaude(prompt: string): Promise<AIResponse> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) {
-    return { model: "Claude", content: "", error: "ANTHROPIC_API_KEY not set" };
-  }
+  if (!apiKey) return { model: "Claude", content: "", error: "ANTHROPIC_API_KEY not set" };
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -28,32 +25,23 @@ export async function askClaude(prompt: string): Promise<AIResponse> {
       }),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      return {
-        model: "Claude",
-        content: "",
-        error: `API error: ${response.status}\n${error}`,
-      };
+    if (!res.ok) {
+      return { model: "Claude", content: "", error: `API error: ${res.status}` };
     }
 
-    const data = await response.json();
-    const content = data.content?.[0]?.text || "No response";
-    return { model: "Claude", content };
-  } catch (error) {
-    return { model: "Claude", content: "", error: String(error) };
+    const data = await res.json();
+    return { model: "Claude", content: data.content?.[0]?.text || "No response" };
+  } catch (e) {
+    return { model: "Claude", content: "", error: String(e) };
   }
 }
 
-// ChatGPT (OpenAI)
 export async function askChatGPT(prompt: string): Promise<AIResponse> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) {
-    return { model: "ChatGPT", content: "", error: "OPENAI_API_KEY not set" };
-  }
+  if (!apiKey) return { model: "ChatGPT", content: "", error: "OPENAI_API_KEY not set" };
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -66,73 +54,46 @@ export async function askChatGPT(prompt: string): Promise<AIResponse> {
       }),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      return {
-        model: "ChatGPT",
-        content: "",
-        error: `API error: ${response.status}\n${error}`,
-      };
+    if (!res.ok) {
+      return { model: "ChatGPT", content: "", error: `API error: ${res.status}` };
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "No response";
-    return { model: "ChatGPT", content };
-  } catch (error) {
-    return { model: "ChatGPT", content: "", error: String(error) };
+    const data = await res.json();
+    return { model: "ChatGPT", content: data.choices?.[0]?.message?.content || "No response" };
+  } catch (e) {
+    return { model: "ChatGPT", content: "", error: String(e) };
   }
 }
 
-// Gemini (Google AI)
 export async function askGemini(prompt: string): Promise<AIResponse> {
   const apiKey = Deno.env.get("GOOGLE_AI_API_KEY");
-  if (!apiKey) {
-    return { model: "Gemini", content: "", error: "GOOGLE_AI_API_KEY not set" };
-  }
+  if (!apiKey) return { model: "Gemini", content: "", error: "GOOGLE_AI_API_KEY not set" };
 
   try {
-    const response = await fetch(
+    const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       }
     );
 
-    if (!response.ok) {
-      const error = await response.text();
-      return {
-        model: "Gemini",
-        content: "",
-        error: `API error: ${response.status}\n${error}`,
-      };
+    if (!res.ok) {
+      return { model: "Gemini", content: "", error: `API error: ${res.status}` };
     }
 
-    const data = await response.json();
-    const content =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
-    return { model: "Gemini", content };
-  } catch (error) {
-    return { model: "Gemini", content: "", error: String(error) };
+    const data = await res.json();
+    return { model: "Gemini", content: data.candidates?.[0]?.content?.parts?.[0]?.text || "No response" };
+  } catch (e) {
+    return { model: "Gemini", content: "", error: String(e) };
   }
 }
 
-// Ask all three models in parallel
-export async function askAll(prompt: string): Promise<AIResponse[]> {
-  const results = await Promise.all([
-    askClaude(prompt),
-    askChatGPT(prompt),
-    askGemini(prompt),
-  ]);
-  return results;
+export function askAll(prompt: string): Promise<AIResponse[]> {
+  return Promise.all([askClaude(prompt), askChatGPT(prompt), askGemini(prompt)]);
 }
 
-// Image generation with DALL-E 3
 export interface ImageResponse {
   imageUrl: string;
   revisedPrompt?: string;
@@ -141,131 +102,28 @@ export interface ImageResponse {
 
 export async function generateImage(prompt: string): Promise<ImageResponse> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) {
-    return { imageUrl: "", error: "OPENAI_API_KEY not set" };
-  }
+  if (!apiKey) return { imageUrl: "", error: "OPENAI_API_KEY not set" };
 
   try {
-    const response = await fetch(
-      "https://api.openai.com/v1/images/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "dall-e-3",
-          prompt,
-          n: 1,
-          size: "1024x1024",
-        }),
-      }
-    );
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
+    });
 
-    if (!response.ok) {
-      const error = await response.text();
-      return { imageUrl: "", error: `API error: ${response.status}\n${error}` };
+    if (!res.ok) {
+      return { imageUrl: "", error: `API error: ${res.status}` };
     }
 
-    const data = await response.json();
+    const data = await res.json();
     const imageUrl = data.data?.[0]?.url;
-    const revisedPrompt = data.data?.[0]?.revised_prompt;
+    if (!imageUrl) return { imageUrl: "", error: "No image URL in response" };
 
-    if (!imageUrl) {
-      return { imageUrl: "", error: "No image URL in response" };
-    }
-
-    return { imageUrl, revisedPrompt };
-  } catch (error) {
-    return { imageUrl: "", error: String(error) };
+    return { imageUrl, revisedPrompt: data.data?.[0]?.revised_prompt };
+  } catch (e) {
+    return { imageUrl: "", error: String(e) };
   }
-}
-
-// AI conversation - models respond to each other
-export interface ConversationTurn {
-  model: string;
-  content: string;
-  error?: string;
-}
-
-export async function runConversation(
-  topic: string,
-  rounds: number = 3,
-  onTurn?: (turn: ConversationTurn) => Promise<void>
-): Promise<ConversationTurn[]> {
-  const conversation: ConversationTurn[] = [];
-  const models = ["Claude", "ChatGPT", "Gemini"];
-
-  // First turn - start the debate
-  const starterPrompt = `You're in a friendly debate with other AI assistants (ChatGPT and Gemini). The topic is: "${topic}". Give your opening take in 2-3 sentences. Be opinionated but respectful. Don't introduce yourself.`;
-
-  const firstResponse = await askClaude(starterPrompt);
-  const firstTurn = {
-    model: "Claude",
-    content: firstResponse.content,
-    error: firstResponse.error,
-  };
-  conversation.push(firstTurn);
-  if (onTurn) await onTurn(firstTurn);
-
-  // Subsequent turns - each AI responds to the previous
-  for (let round = 0; round < rounds; round++) {
-    for (let i = 1; i < models.length; i++) {
-      const modelIndex = (round * 2 + i) % 3;
-      const model = models[modelIndex];
-
-      const prompt = buildConversationPrompt(topic, conversation, model);
-
-      let response: AIResponse;
-      switch (model) {
-        case "Claude":
-          response = await askClaude(prompt);
-          break;
-        case "ChatGPT":
-          response = await askChatGPT(prompt);
-          break;
-        case "Gemini":
-          response = await askGemini(prompt);
-          break;
-        default:
-          response = { model, content: "", error: "Unknown model" };
-      }
-
-      const turn = {
-        model,
-        content: response.content,
-        error: response.error,
-      };
-      conversation.push(turn);
-      if (onTurn) await onTurn(turn);
-
-      // Stop if we hit an error
-      if (response.error) break;
-    }
-  }
-
-  return conversation;
-}
-
-function buildConversationPrompt(
-  topic: string,
-  history: ConversationTurn[],
-  currentModel: string
-): string {
-  const otherModels = ["Claude", "ChatGPT", "Gemini"].filter(
-    (m) => m !== currentModel
-  );
-
-  let prompt = `You're ${currentModel} in a friendly debate with ${otherModels.join(
-    " and "
-  )}. Topic: "${topic}"\n\nConversation so far:\n`;
-
-  for (const turn of history) {
-    prompt += `${turn.model}: ${turn.content}\n\n`;
-  }
-
-  prompt += `Now respond as ${currentModel}. React to what was said, agree or disagree, add your perspective. Keep it to 2-3 sentences. Be conversational and engaging.`;
-
-  return prompt;
 }

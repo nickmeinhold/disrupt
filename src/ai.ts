@@ -175,7 +175,8 @@ export interface ConversationTurn {
 
 export async function runConversation(
   topic: string,
-  rounds: number = 3
+  rounds: number = 3,
+  onTurn?: (turn: ConversationTurn) => Promise<void>
 ): Promise<ConversationTurn[]> {
   const conversation: ConversationTurn[] = [];
   const models = ["Claude", "ChatGPT", "Gemini"];
@@ -184,11 +185,13 @@ export async function runConversation(
   const starterPrompt = `You're in a friendly debate with other AI assistants (ChatGPT and Gemini). The topic is: "${topic}". Give your opening take in 2-3 sentences. Be opinionated but respectful. Don't introduce yourself.`;
 
   const firstResponse = await askClaude(starterPrompt);
-  conversation.push({
+  const firstTurn = {
     model: "Claude",
     content: firstResponse.content,
     error: firstResponse.error,
-  });
+  };
+  conversation.push(firstTurn);
+  if (onTurn) await onTurn(firstTurn);
 
   // Subsequent turns - each AI responds to the previous
   for (let round = 0; round < rounds; round++) {
@@ -213,11 +216,13 @@ export async function runConversation(
           response = { model, content: "", error: "Unknown model" };
       }
 
-      conversation.push({
+      const turn = {
         model,
         content: response.content,
         error: response.error,
-      });
+      };
+      conversation.push(turn);
+      if (onTurn) await onTurn(turn);
 
       // Stop if we hit an error
       if (response.error) break;

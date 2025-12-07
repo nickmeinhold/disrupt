@@ -199,22 +199,21 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
             (options.find((o) => o.name === "rounds")?.value as number) || 2
           )
         );
-        const conversation = await runConversation(prompt, rounds);
 
         // Send header as initial response
         await bot.helpers.editOriginalInteractionResponse(interaction.token, {
           content: `🎙️ **AI Debate: ${prompt}**`,
         });
 
-        // Send each turn as a separate message to the channel
+        // Send each turn as a separate message in real-time
         const channelId = interaction.channelId!;
-        for (const turn of conversation) {
+        await runConversation(prompt, rounds, async (turn) => {
           const msg = turn.error
             ? `**${turn.model}:** ❌ ${turn.error}`
             : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
-
           await bot.helpers.sendMessage(channelId, { content: msg });
-        }
+        });
+
         return; // Skip the normal response handling
       }
       case "imagine": {

@@ -15,6 +15,7 @@ import {
   askGemini,
   askAll,
   runConversation,
+  generateImage,
 } from "./src/ai.ts";
 
 // Load .env file
@@ -111,6 +112,18 @@ async function registerCommands(bot: Bot) {
         },
       ],
     },
+    {
+      name: "imagine",
+      description: "Generate an image with DALL-E 3",
+      options: [
+        {
+          name: "prompt",
+          description: "Describe the image you want to create",
+          type: ApplicationCommandOptionTypes.String,
+          required: true,
+        },
+      ],
+    },
   ];
 
   try {
@@ -203,6 +216,28 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
           await bot.helpers.sendMessage(channelId, { content: msg });
         }
         return; // Skip the normal response handling
+      }
+      case "imagine": {
+        const result = await generateImage(prompt);
+
+        if (result.error) {
+          responseContent = `❌ Image generation failed: ${result.error}`;
+        } else {
+          // Send the image as an embed
+          await bot.helpers.editOriginalInteractionResponse(interaction.token, {
+            content: `🎨 **Prompt:** ${prompt}`,
+            embeds: [
+              {
+                image: { url: result.imageUrl },
+                footer: result.revisedPrompt
+                  ? { text: `DALL-E revised: ${result.revisedPrompt.slice(0, 200)}` }
+                  : undefined,
+              },
+            ],
+          });
+          return; // Skip the normal response handling
+        }
+        break;
       }
       default:
         responseContent = "❌ Unknown command";

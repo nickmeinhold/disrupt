@@ -30,7 +30,11 @@ export async function askClaude(prompt: string): Promise<AIResponse> {
 
     if (!response.ok) {
       const error = await response.text();
-      return { model: "Claude", content: "", error: `API error: ${response.status}` };
+      return {
+        model: "Claude",
+        content: "",
+        error: `API error: ${response.status}\n${error}`,
+      };
     }
 
     const data = await response.json();
@@ -53,7 +57,7 @@ export async function askChatGPT(prompt: string): Promise<AIResponse> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",
@@ -64,7 +68,11 @@ export async function askChatGPT(prompt: string): Promise<AIResponse> {
 
     if (!response.ok) {
       const error = await response.text();
-      return { model: "ChatGPT", content: "", error: `API error: ${response.status}` };
+      return {
+        model: "ChatGPT",
+        content: "",
+        error: `API error: ${response.status}\n${error}`,
+      };
     }
 
     const data = await response.json();
@@ -98,11 +106,16 @@ export async function askGemini(prompt: string): Promise<AIResponse> {
 
     if (!response.ok) {
       const error = await response.text();
-      return { model: "Gemini", content: "", error: `API error: ${response.status}` };
+      return {
+        model: "Gemini",
+        content: "",
+        error: `API error: ${response.status}\n${error}`,
+      };
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+    const content =
+      data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
     return { model: "Gemini", content };
   } catch (error) {
     return { model: "Gemini", content: "", error: String(error) };
@@ -133,23 +146,26 @@ export async function generateImage(prompt: string): Promise<ImageResponse> {
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-      }),
-    });
+    const response = await fetch(
+      "https://api.openai.com/v1/images/generations",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();
-      return { imageUrl: "", error: `API error: ${response.status}` };
+      return { imageUrl: "", error: `API error: ${response.status}\n${error}` };
     }
 
     const data = await response.json();

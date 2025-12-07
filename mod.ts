@@ -23,7 +23,9 @@ await load({ export: true });
 
 const token = Deno.env.get("DISCORD_TOKEN");
 if (!token) {
-  console.error("❌ DISCORD_TOKEN is required! Copy .env.example to .env and add your token.");
+  console.error(
+    "❌ DISCORD_TOKEN is required! Copy .env.example to .env and add your token."
+  );
   Deno.exit(1);
 }
 
@@ -130,11 +132,16 @@ async function registerCommands(bot: Bot) {
     // Use guild commands for instant updates (replace with your server ID)
     const guildId = Deno.env.get("DISCORD_GUILD_ID");
     if (guildId) {
-      await bot.helpers.upsertGuildApplicationCommands(BigInt(guildId), commands);
+      await bot.helpers.upsertGuildApplicationCommands(
+        BigInt(guildId),
+        commands
+      );
       console.log("✅ Slash commands registered to guild!");
     } else {
       await bot.helpers.upsertGlobalApplicationCommands(commands);
-      console.log("✅ Slash commands registered globally (may take up to 1 hour)!");
+      console.log(
+        "✅ Slash commands registered globally (may take up to 1 hour)!"
+      );
     }
   } catch (error) {
     console.error("❌ Failed to register commands:", error);
@@ -173,17 +180,29 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
     switch (commandName) {
       case "claude": {
         const result = await askClaude(prompt);
-        responseContent = formatResponse("Claude", prompt, result.content, result.error);
+        responseContent = formatResponse(
+          "Claude",
+          result.content,
+          result.error
+        );
         break;
       }
       case "gpt": {
         const result = await askChatGPT(prompt);
-        responseContent = formatResponse("ChatGPT", prompt, result.content, result.error);
+        responseContent = formatResponse(
+          "ChatGPT",
+          result.content,
+          result.error
+        );
         break;
       }
       case "gemini": {
         const result = await askGemini(prompt);
-        responseContent = formatResponse("Gemini", prompt, result.content, result.error);
+        responseContent = formatResponse(
+          "Gemini",
+          result.content,
+          result.error
+        );
         break;
       }
       case "askall": {
@@ -229,7 +248,12 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
               {
                 image: { url: result.imageUrl },
                 footer: result.revisedPrompt
-                  ? { text: `DALL-E revised: ${result.revisedPrompt.slice(0, 200)}` }
+                  ? {
+                      text: `DALL-E revised: ${result.revisedPrompt.slice(
+                        0,
+                        200
+                      )}`,
+                    }
                   : undefined,
               },
             ],
@@ -258,28 +282,36 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
   }
 }
 
-function formatResponse(model: string, prompt: string, content: string, error?: string): string {
+function formatResponse(
+  model: string,
+  content: string,
+  error?: string
+): string {
   if (error) {
     return `**${model}** ❌\n\`\`\`${error}\`\`\``;
   }
   return `**${model}**\n>>> ${content}`;
 }
 
-function formatAllResponses(prompt: string, results: { model: string; content: string; error?: string }[]): string {
+function formatAllResponses(
+  prompt: string,
+  results: { model: string; content: string; error?: string }[]
+): string {
   const lines = [`**Prompt:** ${prompt}\n`];
-  
+
   for (const result of results) {
     if (result.error) {
       lines.push(`**${result.model}** ❌ ${result.error}\n`);
     } else {
       // Truncate each response to ~500 chars for askall
-      const truncated = result.content.length > 500 
-        ? result.content.substring(0, 497) + "..." 
-        : result.content;
+      const truncated =
+        result.content.length > 500
+          ? result.content.substring(0, 497) + "..."
+          : result.content;
       lines.push(`**${result.model}**\n${truncated}\n`);
     }
   }
-  
+
   return lines.join("\n");
 }
 

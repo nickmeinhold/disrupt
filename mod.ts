@@ -9,7 +9,7 @@ import {
 } from "@discordeno/mod.ts";
 import { load } from "std/dotenv/mod.ts";
 
-import { askClaude, askChatGPT, askGemini, askAll } from "./src/ai.ts";
+import { claude, chatgpt, gemini, askAll } from "./src/ai/index.ts";
 import { runDebate } from "./src/debate.ts";
 import { generateImage } from "./src/image.ts";
 
@@ -89,15 +89,15 @@ async function handleCommand(bot: Bot, interaction: Interaction) {
   try {
     switch (name) {
       case "claude": {
-        const r = await askClaude(prompt);
+        const r = await claude.ask(prompt);
         return edit(bot, interaction, format(r));
       }
       case "gpt": {
-        const r = await askChatGPT(prompt);
+        const r = await chatgpt.ask(prompt);
         return edit(bot, interaction, format(r));
       }
       case "gemini": {
-        const r = await askGemini(prompt);
+        const r = await gemini.ask(prompt);
         return edit(bot, interaction, format(r));
       }
       case "askall": {

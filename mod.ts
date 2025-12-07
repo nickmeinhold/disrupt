@@ -9,8 +9,9 @@ import {
 } from "https://deno.land/x/discordeno@18.0.1/mod.ts";
 import { load } from "https://deno.land/std@0.208.0/dotenv/mod.ts";
 
-import { askClaude, askChatGPT, askGemini, askAll, generateImage } from "./src/ai.ts";
+import { askClaude, askChatGPT, askGemini, askAll } from "./src/ai.ts";
 import { runDebate } from "./src/debate.ts";
+import { generateImage } from "./src/image.ts";
 
 // Load .env file
 await load({ export: true });

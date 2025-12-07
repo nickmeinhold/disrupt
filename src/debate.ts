@@ -8,13 +8,20 @@ export interface ConversationTurn {
   error?: string;
 }
 
+export interface DebateCallbacks {
+  onTurn: (turn: ConversationTurn) => Promise<void>;
+  getNewMessages?: () => Promise<ConversationTurn[]>;
+  waitMs?: number;
+}
+
 export async function runDebate(
   topic: string,
   rounds: number,
-  onTurn: (turn: ConversationTurn) => Promise<void>
+  callbacks: DebateCallbacks
 ): Promise<void> {
+  const { onTurn, getNewMessages, waitMs = 5000 } = callbacks;
   const history: ConversationTurn[] = [];
-  const participants = clients.map((c) => c.name);
+  const participants = [...clients.map((c) => c.name), "humans"];
 
   // First client opens the debate
   const opener = clients[0];
@@ -28,8 +35,14 @@ export async function runDebate(
   // Each round, every other client gets a turn
   for (let round = 0; round < rounds; round++) {
     for (let i = 1; i < clients.length; i++) {
-      const client = clients[(round + i) % clients.length];
+      // Wait for user messages
+      if (getNewMessages) {
+        await sleep(waitMs);
+        const userMessages = await getNewMessages();
+        history.push(...userMessages);
+      }
 
+      const client = clients[(round + i) % clients.length];
       const response = await client.ask(buildResponsePrompt(topic, history, client.name, participants));
       const turn = { model: client.name, content: response.content, error: response.error };
       history.push(turn);
@@ -40,19 +53,36 @@ export async function runDebate(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 function buildOpenerPrompt(topic: string, participants: string[]): string {
   const others = participants.slice(1).join(", ");
   return `You're in a lively debate with ${others}. The topic is: "${topic}". Give your opening take in 2-3 sentences. Be opinionated and engaging. Don't introduce yourself.`;
 }
 
 function buildResponsePrompt(topic: string, history: ConversationTurn[], model: string, participants: string[]): string {
+  const aiNames = clients.map((c) => c.name);
   const others = participants.filter((n) => n !== model).join(", ");
   let prompt = `You're ${model} in a lively debate with ${others}. Topic: "${topic}"\n\nConversation so far:\n`;
 
+  const humanComments: string[] = [];
+
   for (const turn of history) {
-    prompt += `${turn.model}: ${turn.content}\n\n`;
+    const isHuman = !aiNames.includes(turn.model);
+    if (isHuman) {
+      prompt += `🗣️ [HUMAN] ${turn.model}: "${turn.content}"\n\n`;
+      humanComments.push(`${turn.model} said: "${turn.content}"`);
+    } else {
+      prompt += `${turn.model}: ${turn.content}\n\n`;
+    }
   }
 
-  prompt += `Now respond as ${model}. React to what was said, agree or disagree, add your perspective. Keep it to 2-3 sentences. Be conversational and engaging.`;
+  prompt += `Now respond as ${model}. `;
+  if (humanComments.length > 0) {
+    prompt += `IMPORTANT: A human has joined the conversation! ${humanComments[humanComments.length - 1]} - You MUST directly acknowledge and respond to their comment. `;
+  }
+  prompt += `React to what was said, agree or disagree, add your perspective. Keep it to 2-3 sentences. Be conversational and engaging.`;
   return prompt;
 }

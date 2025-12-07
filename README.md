@@ -38,8 +38,11 @@ XAI_API_KEY=xai-...
 ### 4. Invite the bot
 
 In Discord Developer Portal → OAuth2 → URL Generator:
+
 - Scopes: `bot`, `applications.commands`
-- Permissions: `Send Messages`, `Use Slash Commands`
+- Permissions: `Send Messages`, `Use Slash Commands`, `Read Message History`
+
+Also enable **Message Content Intent** under Bot → Privileged Gateway Intents (required for human participation in debates).
 
 ### 5. Run
 
@@ -50,26 +53,29 @@ deno task start # Production
 
 ## Commands
 
-| Command                    | Description                           |
-| -------------------------- | ------------------------------------- |
-| `/claude <prompt>`         | Ask Claude (Anthropic)                |
-| `/gpt <prompt>`            | Ask ChatGPT (OpenAI)                  |
-| `/gemini <prompt>`         | Ask Gemini (Google)                   |
-| `/grok <prompt>`           | Ask Grok - witty and sarcastic        |
-| `/grok-serious <prompt>`   | Ask Grok - analytical and direct      |
-| `/grok-chaos <prompt>`     | Ask Grok - chaotic devil's advocate   |
-| `/askall <prompt>`         | Ask all AIs and compare               |
-| `/debate <topic> [rounds]` | Watch AIs debate (1-5 rounds)         |
-| `/imagine <prompt>`        | Generate image with DALL-E 3          |
+| Command                    | Description                         |
+| -------------------------- | ----------------------------------- |
+| `/claude <prompt>`         | Ask Claude (Anthropic)              |
+| `/gpt <prompt>`            | Ask ChatGPT (OpenAI)                |
+| `/gemini <prompt>`         | Ask Gemini (Google)                 |
+| `/grok <prompt>`           | Ask Grok - witty and sarcastic      |
+| `/grok-serious <prompt>`   | Ask Grok - analytical and direct    |
+| `/grok-chaos <prompt>`     | Ask Grok - chaotic devil's advocate |
+| `/askall <prompt>`         | Ask all AIs and compare             |
+| `/debate <topic> [rounds]` | Watch AIs debate (1-5 rounds)       |
+| `/imagine <prompt>`        | Generate image with DALL-E 3        |
 
 ## Debate Mode
 
 `/debate` starts a multi-turn conversation between:
+
 - Claude, ChatGPT, Gemini, Grok (Funny), and Grok (Chaos)
 
-```
+```sh
 /debate Is a hot dog a sandwich? 3
 ```
+
+**Join the debate!** Send messages in the channel during a debate and the AIs will respond to your comments directly. The bot waits 5 seconds between turns to give you time to jump in.
 
 ## License
 

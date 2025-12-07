@@ -49,7 +49,7 @@ function promptOption(desc = "Your question or prompt") {
 // Bot setup
 const bot = createBot({
   token,
-  intents: Intents.Guilds | Intents.GuildMessages,
+  intents: Intents.Guilds | Intents.GuildMessages | Intents.MessageContent,
   events: {
     ready: (bot, payload) => {
       console.log(`✅ ${payload.user.username} is online!`);
@@ -122,11 +122,35 @@ async function handleCommand(bot: Bot, interaction: Interaction) {
       }
       case "debate": {
         const rounds = Math.min(5, Math.max(1, (options.find((o) => o.name === "rounds")?.value as number) || 2));
-        await edit(bot, interaction, `🎙️ **AI Debate: ${prompt}**`);
+        await edit(bot, interaction, `🎙️ **AI Debate: ${prompt}**\n_Jump in! Your messages will be included._`);
 
-        await runDebate(prompt, rounds, async (turn) => {
-          const msg = turn.error ? `**${turn.model}:** ❌ ${turn.error}` : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
-          await bot.helpers.sendMessage(interaction.channelId!, { content: msg });
+        const channelId = interaction.channelId!;
+        let lastMessageId: bigint | undefined;
+
+        // Get the latest message ID
+        const getLastMessageId = async () => {
+          const msgs = await bot.helpers.getMessages(channelId, { limit: 1 });
+          if (msgs.size > 0) lastMessageId = [...msgs.values()][0].id;
+        };
+        await getLastMessageId();
+
+        await runDebate(prompt, rounds, {
+          onTurn: async (turn) => {
+            const msg = turn.error ? `**${turn.model}:** ❌ ${turn.error}` : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
+            await bot.helpers.sendMessage(channelId, { content: msg });
+            await getLastMessageId();
+          },
+          getNewMessages: async () => {
+            const msgs = await bot.helpers.getMessages(channelId, { after: lastMessageId, limit: 10 });
+            const userMsgs: { model: string; content: string }[] = [];
+            for (const m of [...msgs.values()].reverse()) {
+              if (m.authorId === bot.id) continue;
+              const user = await bot.helpers.getUser(m.authorId).catch(() => null);
+              userMsgs.push({ model: user?.username || "Someone", content: m.content });
+            }
+            return userMsgs;
+          },
+          waitMs: 5000,
         });
         return;
       }

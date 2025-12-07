@@ -6,10 +6,16 @@ import {
   ApplicationCommandOptionTypes,
   type Bot,
   type Interaction,
-} from "@discordeno/mod.ts";
+} from "https://deno.land/x/discordeno@18.0.1/mod.ts";
 
-import { load } from "std/dotenv/mod.ts";
-import { askClaude, askChatGPT, askGemini, askAll } from "./src/ai.ts";
+import { load } from "https://deno.land/std@0.208.0/dotenv/mod.ts";
+import {
+  askClaude,
+  askChatGPT,
+  askGemini,
+  askAll,
+  runConversation,
+} from "./src/ai.ts";
 
 // Load .env file
 await load({ export: true });
@@ -24,7 +30,7 @@ console.log("🚀 Starting Disrupt...");
 
 const bot = createBot({
   token,
-  intents: Intents.Guilds,
+  intents: Intents.Guilds | Intents.GuildMessages,
   events: {
     ready: (bot, payload) => {
       console.log(`✅ ${payload.user.username} is online!`);
@@ -87,6 +93,24 @@ async function registerCommands(bot: Bot) {
         },
       ],
     },
+    {
+      name: "debate",
+      description: "Watch the AIs debate a topic with each other",
+      options: [
+        {
+          name: "topic",
+          description: "The topic for the AIs to debate",
+          type: ApplicationCommandOptionTypes.String,
+          required: true,
+        },
+        {
+          name: "rounds",
+          description: "Number of rounds (1-5, default 2)",
+          type: ApplicationCommandOptionTypes.Integer,
+          required: false,
+        },
+      ],
+    },
   ];
 
   try {
@@ -110,13 +134,18 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
 
   const commandName = interaction.data?.name;
   const options = interaction.data?.options || [];
-  const prompt = options.find((o) => o.name === "prompt")?.value as string;
+  const prompt = (options.find((o) => o.name === "prompt")?.value ||
+    options.find((o) => o.name === "topic")?.value) as string;
 
   if (!prompt) {
-    await bot.helpers.sendInteractionResponse(interaction.id, interaction.token, {
-      type: 4,
-      data: { content: "❌ Please provide a prompt!" },
-    });
+    await bot.helpers.sendInteractionResponse(
+      interaction.id,
+      interaction.token,
+      {
+        type: 4,
+        data: { content: "❌ Please provide a prompt!" },
+      }
+    );
     return;
   }
 
@@ -148,6 +177,32 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
         const results = await askAll(prompt);
         responseContent = formatAllResponses(prompt, results);
         break;
+      }
+      case "debate": {
+        const rounds = Math.min(
+          5,
+          Math.max(
+            1,
+            (options.find((o) => o.name === "rounds")?.value as number) || 2
+          )
+        );
+        const conversation = await runConversation(prompt, rounds);
+
+        // Send header as initial response
+        await bot.helpers.editOriginalInteractionResponse(interaction.token, {
+          content: `🎙️ **AI Debate: ${prompt}**`,
+        });
+
+        // Send each turn as a separate message to the channel
+        const channelId = interaction.channelId!;
+        for (const turn of conversation) {
+          const msg = turn.error
+            ? `**${turn.model}:** ❌ ${turn.error}`
+            : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
+
+          await bot.helpers.sendMessage(channelId, { content: msg });
+        }
+        return; // Skip the normal response handling
       }
       default:
         responseContent = "❌ Unknown command";

@@ -84,7 +84,7 @@ export async function askGemini(prompt: string): Promise<AIResponse> {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
@@ -117,4 +117,87 @@ export async function askAll(prompt: string): Promise<AIResponse[]> {
     askGemini(prompt),
   ]);
   return results;
+}
+
+// AI conversation - models respond to each other
+export interface ConversationTurn {
+  model: string;
+  content: string;
+  error?: string;
+}
+
+export async function runConversation(
+  topic: string,
+  rounds: number = 3
+): Promise<ConversationTurn[]> {
+  const conversation: ConversationTurn[] = [];
+  const models = ["Claude", "ChatGPT", "Gemini"];
+
+  // First turn - start the debate
+  const starterPrompt = `You're in a friendly debate with other AI assistants (ChatGPT and Gemini). The topic is: "${topic}". Give your opening take in 2-3 sentences. Be opinionated but respectful. Don't introduce yourself.`;
+
+  const firstResponse = await askClaude(starterPrompt);
+  conversation.push({
+    model: "Claude",
+    content: firstResponse.content,
+    error: firstResponse.error,
+  });
+
+  // Subsequent turns - each AI responds to the previous
+  for (let round = 0; round < rounds; round++) {
+    for (let i = 1; i < models.length; i++) {
+      const modelIndex = (round * 2 + i) % 3;
+      const model = models[modelIndex];
+
+      const prompt = buildConversationPrompt(topic, conversation, model);
+
+      let response: AIResponse;
+      switch (model) {
+        case "Claude":
+          response = await askClaude(prompt);
+          break;
+        case "ChatGPT":
+          response = await askChatGPT(prompt);
+          break;
+        case "Gemini":
+          response = await askGemini(prompt);
+          break;
+        default:
+          response = { model, content: "", error: "Unknown model" };
+      }
+
+      conversation.push({
+        model,
+        content: response.content,
+        error: response.error,
+      });
+
+      // Stop if we hit an error
+      if (response.error) break;
+    }
+  }
+
+  return conversation;
+}
+
+function buildConversationPrompt(
+  topic: string,
+  history: ConversationTurn[],
+  currentModel: string
+): string {
+  const otherModels = ["Claude", "ChatGPT", "Gemini"].filter(
+    (m) => m !== currentModel
+  );
+
+  let prompt = `You're ${currentModel} in a friendly debate with ${otherModels.join(
+    " and "
+  )}. Topic: "${topic}"\n\nConversation so far:\n`;
+
+  for (const turn of history) {
+    prompt += `${turn.model}: ${turn.content}\n\n`;
+  }
+
+  prompt += `Now respond as ${currentModel}. React to what was said, agree or disagree, add your perspective. Keep it to 2-3 sentences. Be conversational and engaging.`;
+
+  return prompt;
 }

@@ -90,8 +90,15 @@ async function registerCommands(bot: Bot) {
   ];
 
   try {
-    await bot.helpers.upsertGlobalApplicationCommands(commands);
-    console.log("✅ Slash commands registered!");
+    // Use guild commands for instant updates (replace with your server ID)
+    const guildId = Deno.env.get("DISCORD_GUILD_ID");
+    if (guildId) {
+      await bot.helpers.upsertGuildApplicationCommands(BigInt(guildId), commands);
+      console.log("✅ Slash commands registered to guild!");
+    } else {
+      await bot.helpers.upsertGlobalApplicationCommands(commands);
+      console.log("✅ Slash commands registered globally (may take up to 1 hour)!");
+    }
   } catch (error) {
     console.error("❌ Failed to register commands:", error);
   }

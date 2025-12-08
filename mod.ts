@@ -127,18 +127,15 @@ async function handleCommand(bot: Bot, interaction: Interaction) {
         const channelId = interaction.channelId!;
         let lastMessageId: bigint | undefined;
 
-        // Get the latest message ID
-        const getLastMessageId = async () => {
-          const msgs = await bot.helpers.getMessages(channelId, { limit: 1 });
-          if (msgs.size > 0) lastMessageId = [...msgs.values()][0].id;
-        };
-        await getLastMessageId();
+        // Get the initial latest message ID
+        const msgs = await bot.helpers.getMessages(channelId, { limit: 1 });
+        if (msgs.size > 0) lastMessageId = [...msgs.values()][0].id;
 
         await runDebate(prompt, rounds, {
           onTurn: async (turn) => {
             const msg = turn.error ? `**${turn.model}:** ❌ ${turn.error}` : `**${turn.model}:** ${turn.content.slice(0, 1980)}`;
-            await bot.helpers.sendMessage(channelId, { content: msg });
-            await getLastMessageId();
+            const sentMsg = await bot.helpers.sendMessage(channelId, { content: msg });
+            lastMessageId = sentMsg.id;
           },
           getNewMessages: async () => {
             const msgs = await bot.helpers.getMessages(channelId, { after: lastMessageId, limit: 10 });
@@ -147,6 +144,11 @@ async function handleCommand(bot: Bot, interaction: Interaction) {
               if (m.authorId === bot.id) continue;
               const user = await bot.helpers.getUser(m.authorId).catch(() => null);
               userMsgs.push({ model: user?.username || "Someone", content: m.content });
+            }
+            if (userMsgs.length > 0) {
+              // Update lastMessageId to include user messages we just fetched
+              const allMsgIds = [...msgs.values()].map(m => m.id);
+              if (allMsgIds.length > 0) lastMessageId = allMsgIds.reduce((a, b) => a > b ? a : b);
             }
             return userMsgs;
           },

@@ -25,8 +25,14 @@ export async function runDebate(
 
   // First client opens the debate
   const opener = clients[0];
-  const openerResponse = await opener.ask(buildOpenerPrompt(topic, participants));
-  const firstTurn = { model: opener.name, content: openerResponse.content, error: openerResponse.error };
+  const openerResponse = await opener.ask(
+    buildOpenerPrompt(topic, participants)
+  );
+  const firstTurn = {
+    model: opener.name,
+    content: openerResponse.content,
+    error: openerResponse.error,
+  };
   history.push(firstTurn);
   await onTurn(firstTurn);
 
@@ -43,8 +49,14 @@ export async function runDebate(
       }
 
       const client = clients[(round + i) % clients.length];
-      const response = await client.ask(buildResponsePrompt(topic, history, client.name, participants));
-      const turn = { model: client.name, content: response.content, error: response.error };
+      const response = await client.ask(
+        buildResponsePrompt(topic, history, client.name, participants)
+      );
+      const turn = {
+        model: client.name,
+        content: response.content,
+        error: response.error,
+      };
       history.push(turn);
       await onTurn(turn);
 
@@ -59,10 +71,15 @@ function sleep(ms: number): Promise<void> {
 
 function buildOpenerPrompt(topic: string, participants: string[]): string {
   const others = participants.slice(1).join(", ");
-  return `You are an opinionated and confrontational AI. You often disagree with others but you always give strong arguments to back up your claims. You speak in a casual and informal style. You don't use long sentences or "big words". You avoid cliches and truisms. Your goal is not to "please" or "satisfy" the user. Your goal is to challenge their belief system. Keep your responses short, limited to 2-3 sentences. And don't just agree with everything that the other person says! Your goal is not to protect the user or keep them safe and comfortable. Your goal is not to be helpful. Your goal is to challenge the user intellectually and give them something new and different to think about. You're in a lively debate with ${others}. The topic is: "${topic}". Don't introduce yourself.`;
+  return `You're in a lively debate with ${others}. The topic is: "${topic}". You are an opinionated and confrontational AI. You often disagree with others but you always give strong arguments to back up your claims. You speak in a casual and informal style. You don't use long sentences or "big words". You avoid cliches and truisms. Your goal is not to "please" or "satisfy" the user. Your goal is to challenge their belief system. Keep your responses short, limited to 2-3 sentences. And don't just agree with everything that the other person says! Your goal is not to protect the user or keep them safe and comfortable. Your goal is not to be helpful. Your goal is to challenge the user intellectually and give them something new and different to think about. You're in a lively debate with ${others}. The topic is: "${topic}". Don't introduce yourself.`;
 }
 
-function buildResponsePrompt(topic: string, history: ConversationTurn[], model: string, participants: string[]): string {
+function buildResponsePrompt(
+  topic: string,
+  history: ConversationTurn[],
+  model: string,
+  participants: string[]
+): string {
   const aiNames = clients.map((c) => c.name);
   const others = participants.filter((n) => n !== model).join(", ");
   let prompt = `You're ${model} in a lively debate with ${others}. Topic: "${topic}"\n\nConversation so far:\n`;
@@ -81,7 +98,9 @@ function buildResponsePrompt(topic: string, history: ConversationTurn[], model: 
 
   prompt += `Now respond as ${model}. `;
   if (humanComments.length > 0) {
-    prompt += `IMPORTANT: A human has joined the conversation! ${humanComments[humanComments.length - 1]} - You MUST directly acknowledge and respond to their comment. `;
+    prompt += `IMPORTANT: A human has joined the conversation! ${
+      humanComments[humanComments.length - 1]
+    } - You MUST directly acknowledge and respond to their comment. `;
   }
   prompt += `React to what was said, agree or disagree, add your perspective. Keep it to 2-3 sentences. Be conversational and engaging.`;
   return prompt;

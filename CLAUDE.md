@@ -4,42 +4,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Disrupt is a Discord bot written in TypeScript using the Deno runtime. It integrates multiple AI providers (Claude, ChatGPT, Gemini, Grok) and allows users to chat with them individually, compare responses, or watch them debate topics.
+Disrupt consists of 4 separate Discord bots (Claude, ChatGPT, Gemini, Grok), each running as an independent process with its own Discord bot token. Written in TypeScript using the Deno runtime.
 
 ## Commands
 
 ```bash
-deno task dev    # Run with auto-reload (development)
-deno task start  # Run in production
-```
+# Run individual bots
+deno task claude    # Claude bot
+deno task gpt       # ChatGPT bot
+deno task gemini    # Gemini bot
+deno task grok      # Grok bot
 
-Deno permissions used: `--allow-net`, `--allow-env`, `--allow-read`, `--allow-import`
+# Development mode with auto-reload
+deno task dev:claude
+deno task dev:gpt
+deno task dev:gemini
+deno task dev:grok
+```
 
 ## Architecture
 
-```
-mod.ts              # Entry point: Discord bot setup, slash command routing
+```text
+bots/
+  claude-bot.ts     # Claude: /claude, /debate (debate coordinator)
+  gpt-bot.ts        # ChatGPT: /gpt, /imagine
+  gemini-bot.ts     # Gemini: /gemini
+  grok-bot.ts       # Grok: /grok, /grok-serious, /grok-chaos
 src/
-  ai/
+  ai/               # Shared AI clients (unchanged from single-bot)
     types.ts        # AIClient and AIResponse interfaces
-    index.ts        # Singleton instances, clients array, askAll()
+    index.ts        # Singleton instances, exports
     claude.ts       # Anthropic Claude client
     chatgpt.ts      # OpenAI ChatGPT client
     gemini.ts       # Google Gemini client
-    grok.ts         # xAI Grok client with 3 personality modes
-  debate.ts         # Multi-turn AI debate orchestration
+    grok.ts         # xAI Grok with 3 personality modes
+  shared/           # Common bot utilities
+    bot-factory.ts  # createAIBot() - common bot setup with debate watching
+    debate-protocol.ts  # Message format parsing for cross-bot debates
+    discord-utils.ts    # format(), edit(), respond() helpers
   image.ts          # DALL-E 3 image generation
 ```
 
 ### Key Patterns
 
-- **AIClient interface**: All AI providers implement `{ name: string; ask(prompt: string): Promise<AIResponse> }`. Add new providers by implementing this interface.
-- **Singleton instances**: AI clients are instantiated once in `src/ai/index.ts` and reused.
-- **clients array**: Used for debates and `/askall`. Modify this array to change which AIs participate.
-- **Debate flow**: Opens with first client, then rounds through remaining clients. Waits 5s between turns to collect user messages from the channel.
+- **AIClient interface**: All AI providers implement `{ name: string; ask(prompt: string): Promise<AIResponse> }`.
+- **Bot factory**: `createAIBot()` in `bot-factory.ts` creates a Discord bot with common event handlers and debate message watching.
+- **Debate protocol**: Bots coordinate debates via Discord messages with structured metadata (`[DEBATE_TURN | Round: N | NEXT: BotName]`).
+- **Separate tokens**: Each bot needs its own Discord token (`DISCORD_TOKEN_CLAUDE`, `DISCORD_TOKEN_GPT`, etc.).
+- **Required Discord permissions**: Send Messages, Read Message History, Use Slash Commands, plus Message Content Intent enabled.
 
-### Discord Integration
+### Debate Flow
 
-- Commands are registered guild-specific (fast, for dev) if `DISCORD_GUILD_ID` is set, otherwise globally (1hr propagation).
-- Responses are truncated to 2000 chars (Discord limit).
-- Debate mode monitors the channel for human messages between AI turns.
+1. `/debate` command on Claude bot posts a `[DEBATE_START]` message and Claude's opening
+2. Each turn message includes `[NEXT: BotName]` indicating whose turn is next
+3. All bots watch channel messages; when a bot sees its name in `NEXT:`, it takes its turn
+4. Continues until all rounds complete (`NEXT: END`)

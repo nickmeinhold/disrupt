@@ -1,7 +1,17 @@
 {
   "tasks": {
     "dev": "deno run --allow-net --allow-env --allow-read --allow-import --watch mod.ts",
-    "start": "deno run --allow-net --allow-env --allow-read --allow-import mod.ts"
+    "start": "deno run --allow-net --allow-env --allow-read --allow-import mod.ts",
+
+    "claude": "deno run --allow-net --allow-env --allow-read --allow-import bots/claude-bot.ts",
+    "gpt": "deno run --allow-net --allow-env --allow-read --allow-import bots/gpt-bot.ts",
+    "gemini": "deno run --allow-net --allow-env --allow-read --allow-import bots/gemini-bot.ts",
+    "grok": "deno run --allow-net --allow-env --allow-read --allow-import bots/grok-bot.ts",
+
+    "dev:claude": "deno run --allow-net --allow-env --allow-read --allow-import --watch bots/claude-bot.ts",
+    "dev:gpt": "deno run --allow-net --allow-env --allow-read --allow-import --watch bots/gpt-bot.ts",
+    "dev:gemini": "deno run --allow-net --allow-env --allow-read --allow-import --watch bots/gemini-bot.ts",
+    "dev:grok": "deno run --allow-net --allow-env --allow-read --allow-import --watch bots/grok-bot.ts"
   },
   "imports": {
     "@discordeno/": "https://deno.land/x/discordeno@18.0.1/",

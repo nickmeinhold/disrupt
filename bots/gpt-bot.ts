@@ -40,17 +40,22 @@ async function handleCommand(bot: Bot, interaction: Interaction, name: string, o
 
     try {
       const result = await generateImage(prompt);
-      if (result.error) {
-        await edit(bot, interaction, `❌ ${result.error}`);
+      if (result.error || !result.imageData) {
+        await edit(bot, interaction, `❌ ${result.error || "No image generated"}`);
         return true;
       }
 
-      await bot.helpers.editOriginalInteractionResponse(interaction.token, {
-        content: `🎨 **Prompt:** ${prompt}`,
-        embeds: [{
-          image: { url: result.imageUrl },
-          footer: result.revisedPrompt ? { text: result.revisedPrompt.slice(0, 200) } : undefined,
-        }],
+      const content = result.revisedPrompt
+        ? `🎨 **Prompt:** ${prompt}\n_${result.revisedPrompt.slice(0, 200)}_`
+        : `🎨 **Prompt:** ${prompt}`;
+
+      // Edit to show completion, then send image as follow-up
+      await edit(bot, interaction, content);
+      await bot.helpers.sendMessage(interaction.channelId!, {
+        file: {
+          name: "image.png",
+          blob: new Blob([result.imageData], { type: "image/png" }),
+        },
       });
     } catch (e) {
       console.error("Imagine error:", e);

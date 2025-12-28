@@ -1,14 +1,14 @@
 // DALL-E image generation
 
 export interface ImageResponse {
-  imageUrl: string;
+  imageData?: Uint8Array;
   revisedPrompt?: string;
   error?: string;
 }
 
 export async function generateImage(prompt: string): Promise<ImageResponse> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) return { imageUrl: "", error: "OPENAI_API_KEY not set" };
+  if (!apiKey) return { error: "OPENAI_API_KEY not set" };
 
   try {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -21,15 +21,22 @@ export async function generateImage(prompt: string): Promise<ImageResponse> {
     });
 
     if (!res.ok) {
-      return { imageUrl: "", error: `API error: ${res.status}` };
+      const errorData = await res.json().catch(() => ({}));
+      const errorMsg = errorData.error?.message || `API error: ${res.status}`;
+      return { error: errorMsg };
     }
 
     const data = await res.json();
     const imageUrl = data.data?.[0]?.url;
-    if (!imageUrl) return { imageUrl: "", error: "No image URL in response" };
+    if (!imageUrl) return { error: "No image URL in response" };
 
-    return { imageUrl, revisedPrompt: data.data?.[0]?.revised_prompt };
+    // Download the image since DALL-E URLs are temporary
+    const imageRes = await fetch(imageUrl);
+    if (!imageRes.ok) return { error: "Failed to download image" };
+    const imageData = new Uint8Array(await imageRes.arrayBuffer());
+
+    return { imageData, revisedPrompt: data.data?.[0]?.revised_prompt };
   } catch (e) {
-    return { imageUrl: "", error: String(e) };
+    return { error: String(e) };
   }
 }

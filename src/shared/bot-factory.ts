@@ -113,7 +113,7 @@ async function handleDebateMessage(bot: Bot, message: { channelId: bigint; autho
   console.log(`🎙️ ${config.botIdentifier}'s turn in debate!`);
 
   // Fetch recent message history for context
-  const msgs = await bot.helpers.getMessages(message.channelId, { limit: 20 });
+  const msgs = await bot.helpers.getMessages(message.channelId, { limit: 50 });
   const history: { model: string; content: string }[] = [];
   let topic = "";
   let round = 1;
@@ -136,7 +136,7 @@ async function handleDebateMessage(bot: Bot, message: { channelId: bigint; autho
   }
 
   if (!topic) {
-    console.log("⚠️ Could not find debate topic, skipping turn");
+    console.log(`⚠️ Could not find debate topic in ${msgs.size} messages, skipping turn`);
     return;
   }
 

@@ -21,7 +21,7 @@ export class Grok implements AIClient {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "grok-2-latest",
+          model: "grok-3",
           messages: [
             { role: "system", content: this.personality },
             { role: "user", content: prompt },
@@ -30,7 +30,9 @@ export class Grok implements AIClient {
       });
 
       if (!res.ok) {
-        return { model: this.name, content: "", error: `API error: ${res.status}` };
+        const errorBody = await res.text();
+        console.error("Grok API error:", res.status, errorBody);
+        return { model: this.name, content: "", error: `API error ${res.status}: ${errorBody}` };
       }
 
       const data = await res.json();

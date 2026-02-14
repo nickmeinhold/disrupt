@@ -1,6 +1,6 @@
 // Debate message parsing and formatting for cross-bot coordination
 
-export const DEBATE_PARTICIPANTS = ["Claude", "ChatGPT", "Gemini", "Grok"];
+export const DEBATE_PARTICIPANTS = ["Claude", "ChatGPT", "Gemini"];
 
 export interface DebateTurn {
   speaker: string;

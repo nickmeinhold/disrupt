@@ -191,6 +191,10 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
     try {
       console.log(`[watermark] Fetching image from Discord: ${attachment.url}`);
       const response = await fetch(attachment.url);
+      if (!response.ok) {
+        await edit(bot, interaction, `❌ Failed to fetch image from Discord (${response.status})`);
+        return;
+      }
       const imageBuffer = new Uint8Array(await response.arrayBuffer());
       console.log(`[watermark] Image fetched, size: ${imageBuffer.length} bytes`);
 
@@ -383,7 +387,7 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
 
 // Initialize watermarking service if credentials are available
 if (Deno.env.get("FIREBASE_SERVICE_ACCOUNT")) {
-  initializeWatermarking();
+  await initializeWatermarking();
 }
 
 const bot = createBot({

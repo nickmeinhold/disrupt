@@ -3,8 +3,8 @@
 
 import { encode as base64UrlEncode } from "https://deno.land/std@0.208.0/encoding/base64url.ts";
 
-const PROJECT_ID = "watermarking-4a428";
-const STORAGE_BUCKET = "watermarking-4a428.firebasestorage.app";
+const PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID") || "watermarking-4a428";
+const STORAGE_BUCKET = Deno.env.get("FIREBASE_STORAGE_BUCKET") || "watermarking-4a428.firebasestorage.app";
 
 interface ServiceAccount {
   project_id: string;
@@ -19,13 +19,14 @@ let tokenExpiry = 0;
 // Cache for Discord ID -> Firebase UID mapping
 const userCache = new Map<string, string>();
 
-export function initializeWatermarking() {
+export async function initializeWatermarking() {
   const serviceAccountPath = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
   if (!serviceAccountPath) {
     throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable required");
   }
 
-  serviceAccount = JSON.parse(Deno.readTextFileSync(serviceAccountPath));
+  const content = await Deno.readTextFile(serviceAccountPath);
+  serviceAccount = JSON.parse(content);
   console.log("Watermarking service initialized");
 }
 
@@ -617,38 +618,6 @@ export async function pollForMarkingResultWithProgress(
       console.log(`[poll] Task completed! servingUrl=${progress.servingUrl}`);
       onProgress(progress);
       return { success: true, servingUrl: progress.servingUrl };
-    }
-
-    await sleep(intervalMs);
-  }
-
-  return { success: false, error: "Timeout waiting for result" };
-}
-
-export async function pollForMarkingResult(
-  taskId: string,
-  userId: string,
-  maxAttempts = 60,
-  intervalMs = 2000
-): Promise<MarkingResult> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const taskData = await firestoreGetDocument("tasks", taskId);
-
-    if (taskData?.status === "failed") {
-      return { success: false, error: (taskData.error as string) || "Task failed" };
-    }
-
-    if (taskData?.status === "completed") {
-      const results = await firestoreQuery(
-        "markedImages",
-        [{ field: "userId", op: "EQUAL", value: userId }],
-        { field: "createdAt", direction: "DESCENDING" },
-        1
-      );
-
-      if (results.length > 0 && results[0].data.servingUrl) {
-        return { success: true, servingUrl: results[0].data.servingUrl as string };
-      }
     }
 
     await sleep(intervalMs);

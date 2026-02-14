@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Disrupt consists of 5 separate Discord bots (Disruption, Claude, ChatGPT, Gemini, Grok), each running as an independent process with its own Discord bot token. Written in TypeScript using Deno with discordeno v18.
+Disrupt consists of 4 separate Discord bots (Disruption, Claude, ChatGPT, Gemini), each running as an independent process with its own Discord bot token. Written in TypeScript using Deno with discordeno v18.
 
 **Disruption bot** is the orchestrator and includes:
 - AI debates between bots
@@ -20,8 +20,6 @@ deno task disruption  # Disruption bot (orchestrator)
 deno task claude      # Claude bot
 deno task gpt         # ChatGPT bot
 deno task gemini      # Gemini bot
-deno task grok        # Grok bot
-
 # Run disruption bot directly
 deno run --allow-all bots/disruption-bot.ts
 
@@ -39,13 +37,10 @@ DISCORD_TOKEN_DISRUPTION=...
 DISCORD_TOKEN_CLAUDE=...
 DISCORD_TOKEN_GPT=...
 DISCORD_TOKEN_GEMINI=...
-DISCORD_TOKEN_GROK=...
-
 # AI API keys
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_AI_API_KEY=AI...
-XAI_API_KEY=xai-...
 
 # Firebase (for watermarking)
 FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json
@@ -62,7 +57,6 @@ bots/
   claude-bot.ts     # Claude: responds in debates
   gpt-bot.ts        # ChatGPT: /gpt command
   gemini-bot.ts     # Gemini: responds in debates
-  grok-bot.ts       # Grok: multiple personality modes
 src/
   ai/               # AI provider clients
     types.ts        # AIClient and AIResponse interfaces
@@ -70,7 +64,6 @@ src/
     claude.ts       # Anthropic Claude client
     chatgpt.ts      # OpenAI ChatGPT client
     gemini.ts       # Google Gemini client
-    grok.ts         # xAI Grok (grok-3) with 3 personality modes
   shared/           # Common bot utilities
     bot-factory.ts  # createAIBot() - common bot setup
     debate-protocol.ts  # Message format for cross-bot debates

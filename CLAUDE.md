@@ -20,6 +20,10 @@ deno task disruption  # Disruption bot (orchestrator)
 deno task claude      # Claude bot
 deno task gpt         # ChatGPT bot
 deno task gemini      # Gemini bot
+
+# Run all bots at once
+deno task all
+
 # Run disruption bot directly
 deno run --allow-all bots/disruption-bot.ts
 
@@ -44,6 +48,8 @@ GOOGLE_AI_API_KEY=AI...
 
 # Firebase (for watermarking)
 FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json
+FIREBASE_PROJECT_ID=watermarking-4a428          # optional, has default
+FIREBASE_STORAGE_BUCKET=watermarking-4a428.firebasestorage.app  # optional, has default
 
 # Optional: Guild ID for instant command updates
 DISCORD_GUILD_ID=your_server_id

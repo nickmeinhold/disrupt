@@ -54,7 +54,7 @@ async function handleCommand(bot: Bot, interaction: Interaction, name: string, o
       await bot.helpers.sendMessage(interaction.channelId!, {
         file: {
           name: "image.png",
-          blob: new Blob([result.imageData], { type: "image/png" }),
+          blob: new Blob([result.imageData as BlobPart], { type: "image/png" }),
         },
       });
     } catch (e) {

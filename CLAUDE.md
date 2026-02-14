@@ -4,29 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Disrupt consists of 4 separate Discord bots (Claude, ChatGPT, Gemini, Grok), each running as an independent process with its own Discord bot token. Written in TypeScript using the Deno runtime.
+Disrupt consists of 5 separate Discord bots (Disruption, Claude, ChatGPT, Gemini, Grok), each running as an independent process with its own Discord bot token. Written in TypeScript using Deno with discordeno v18.
 
 ## Commands
 
 ```bash
 # Run individual bots
-deno task claude    # Claude bot
-deno task gpt       # ChatGPT bot
-deno task gemini    # Gemini bot
-deno task grok      # Grok bot
+deno task disruption  # Disruption bot (orchestrator)
+deno task claude      # Claude bot
+deno task gpt         # ChatGPT bot
+deno task gemini      # Gemini bot
+deno task grok        # Grok bot
 
 # Development mode with auto-reload
+deno task dev:disruption
 deno task dev:claude
 deno task dev:gpt
 deno task dev:gemini
 deno task dev:grok
+
+# Type-check
+deno check bots/*.ts
 ```
+
+## Environment Variables
+
+Required in `.env` (see `.env.example`):
+
+- `DISCORD_TOKEN_DISRUPTION`, `DISCORD_TOKEN_CLAUDE`, `DISCORD_TOKEN_GPT`, `DISCORD_TOKEN_GEMINI`, `DISCORD_TOKEN_GROK` - Discord bot tokens
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_AI_API_KEY`, `XAI_API_KEY` - AI provider API keys
+- `DISCORD_GUILD_ID` (optional) - For instant command updates during development
 
 ## Architecture
 
 ```text
 bots/
-  claude-bot.ts     # Claude: /claude, /debate (debate coordinator)
+  disruption-bot.ts # Disruption: /debate (orchestrator)
+  claude-bot.ts     # Claude: /claude
   gpt-bot.ts        # ChatGPT: /gpt, /imagine
   gemini-bot.ts     # Gemini: /gemini
   grok-bot.ts       # Grok: /grok, /grok-serious, /grok-chaos
@@ -55,7 +69,7 @@ src/
 
 ### Debate Flow
 
-1. `/debate` command on Claude bot posts a `[DEBATE_START]` message and Claude's opening
+1. `/debate` command on Disruption bot posts a `[DEBATE_START]` message and Claude's opening
 2. Each turn message includes `[NEXT: BotName]` indicating whose turn is next
 3. All bots watch channel messages; when a bot sees its name in `NEXT:`, it takes its turn
 4. Continues until all rounds complete (`NEXT: END`)

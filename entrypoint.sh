@@ -5,10 +5,10 @@ set -e
 trap 'kill $(jobs -p) 2>/dev/null; wait' TERM INT
 
 # Start all 4 bots as background processes
-deno run --allow-all --allow-import bots/disruption-bot.ts &
-deno run --allow-all --allow-import bots/claude-bot.ts &
-deno run --allow-all --allow-import bots/gpt-bot.ts &
-deno run --allow-all --allow-import bots/gemini-bot.ts &
+deno run --allow-all bots/disruption-bot.ts &
+deno run --allow-all bots/claude-bot.ts &
+deno run --allow-all bots/gpt-bot.ts &
+deno run --allow-all bots/gemini-bot.ts &
 
 # Wait for all background processes
 wait

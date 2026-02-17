@@ -2,7 +2,7 @@
 set -e
 
 # Forward SIGTERM/SIGINT to all child processes
-trap 'kill $(jobs -p) 2>/dev/null; wait' SIGTERM SIGINT
+trap 'kill $(jobs -p) 2>/dev/null; wait' TERM INT
 
 # Start all 4 bots as background processes
 deno run --allow-all --allow-import bots/disruption-bot.ts &

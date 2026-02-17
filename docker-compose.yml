@@ -1,0 +1,8 @@
+services:
+  disrupt:
+    build: .
+    env_file: .env
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
+    restart: unless-stopped
+    network_mode: host

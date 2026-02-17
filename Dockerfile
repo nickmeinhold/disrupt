@@ -10,7 +10,7 @@ COPY src/ src/
 COPY bots/ bots/
 
 # Cache dependencies for all 4 bot entrypoints
-RUN deno cache bots/disruption-bot.ts bots/claude-bot.ts bots/gpt-bot.ts bots/gemini-bot.ts
+RUN deno cache --allow-import bots/disruption-bot.ts bots/claude-bot.ts bots/gpt-bot.ts bots/gemini-bot.ts
 
 # Copy entrypoint
 COPY entrypoint.sh ./

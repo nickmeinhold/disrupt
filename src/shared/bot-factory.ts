@@ -118,13 +118,16 @@ async function handleDebateMessage(bot: Bot, message: { channelId: bigint; autho
   let topic = "";
   let round = 1;
   let totalRounds = 2;
+  let articleContext = "";
 
   for (const m of [...msgs.values()].reverse()) {
-    // Check for debate start
+    // Check for debate start — reset history to only track current debate
     const startInfo = isDebateStart(m.content);
     if (startInfo) {
       topic = startInfo.topic;
       totalRounds = startInfo.rounds;
+      articleContext = startInfo.articleContext || "";
+      history.length = 0;
     }
 
     // Parse debate turns for history
@@ -140,12 +143,21 @@ async function handleDebateMessage(bot: Bot, message: { channelId: bigint; autho
     return;
   }
 
+  // Compute round from participant turns only (exclude Disruption moderator turns)
+  const participantTurns = history.filter(h => DEBATE_PARTICIPANTS.includes(h.model)).length;
+  const myTurnNumber = participantTurns + 1;
+  round = Math.ceil(myTurnNumber / DEBATE_PARTICIPANTS.length);
+
   // Build prompt with context
   const others = DEBATE_PARTICIPANTS.filter((p) => p !== config.botIdentifier).join(", ");
   let prompt = `You're ${config.botIdentifier} in a lively debate with ${others}. Topic: "${topic}"\n\nConversation so far:\n`;
 
   for (const h of history) {
     prompt += `${h.model}: ${h.content}\n\n`;
+  }
+
+  if (articleContext) {
+    prompt += `Article content being debated:\n${articleContext}\n\n`;
   }
 
   prompt += `Now respond as ${config.botIdentifier}. React to what was said, agree or disagree, add your perspective. Keep it to 2-3 sentences. Be conversational and engaging.`;

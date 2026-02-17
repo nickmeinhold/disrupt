@@ -13,6 +13,7 @@ export interface DebateTurn {
 export interface DebateStart {
   topic: string;
   rounds: number;
+  articleContext?: string;
 }
 
 // Parse a debate turn message
@@ -40,9 +41,13 @@ export function isDebateStart(message: string): DebateStart | null {
   const match = message.match(/\[DEBATE_START\s*\|\s*Topic:\s*(.+?)\s*\|\s*Rounds:\s*(\d+)\s*\|/);
   if (!match) return null;
 
+  // Extract article context if present
+  const contextMatch = message.match(/\[ARTICLE_CONTEXT\]([\s\S]*?)\[\/ARTICLE_CONTEXT\]/);
+
   return {
     topic: match[1],
     rounds: parseInt(match[2]),
+    articleContext: contextMatch?.[1]?.trim(),
   };
 }
 
@@ -57,6 +62,21 @@ export function formatDebateStart(topic: string, rounds: number, firstBot: strin
 _Jump in! Your messages will be included._
 
 [DEBATE_START | Topic: ${topic} | Rounds: ${rounds} | NEXT: ${firstBot}]`;
+}
+
+// Format a debate start message with article context
+export function formatDebateStartWithContext(topic: string, rounds: number, firstBot: string, url: string, preview: string): string {
+  return `🎙️ **AI Debate Starting!**
+
+**Topic:** ${topic}
+**Source:** ${url}
+**Rounds:** ${rounds}
+**Participants:** ${DEBATE_PARTICIPANTS.join(", ")}
+
+_Jump in! Your messages will be included._
+
+[DEBATE_START | Topic: ${topic} | Rounds: ${rounds} | NEXT: ${firstBot}]
+[ARTICLE_CONTEXT]${preview}[/ARTICLE_CONTEXT]`;
 }
 
 // Format a debate turn message
@@ -94,8 +114,8 @@ export function getNextParticipant(current: string, round: number, totalRounds: 
     if (round >= totalRounds) {
       return null; // Debate is over
     }
-    // Start next round with first participant
-    return DEBATE_PARTICIPANTS[0];
+    // Hand to Disruption bot for consensus check before next round
+    return "Disruption";
   }
 
   return DEBATE_PARTICIPANTS[nextIndex];

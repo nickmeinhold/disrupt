@@ -10,8 +10,8 @@ import {
   type Interaction,
 } from "@discordeno/mod.ts";
 import { load } from "std/dotenv/mod.ts";
-import { claude } from "../src/ai/index.ts";
-import { formatDebateStart, formatTurnMessage, getNextParticipant, DEBATE_PARTICIPANTS } from "../src/shared/debate-protocol.ts";
+import { claude, gemini } from "../src/ai/index.ts";
+import { formatDebateStart, formatDebateStartWithContext, formatTurnMessage, getNextParticipant, parseDebateTurn, isDebateStart, DEBATE_PARTICIPANTS } from "../src/shared/debate-protocol.ts";
 import { edit } from "../src/shared/discord-utils.ts";
 import { generateImage } from "../src/image.ts";
 import {
@@ -59,6 +59,13 @@ const commands = [
     ],
   },
   {
+    name: "search",
+    description: "Search the web and get an AI-powered answer",
+    options: [
+      { name: "query", description: "What to search for", type: ApplicationCommandOptionTypes.String, required: true },
+    ],
+  },
+  {
     name: "detect",
     description: "Detect and extract a watermark from an image",
     options: [
@@ -67,6 +74,37 @@ const commands = [
     ],
   },
 ];
+
+const URL_REGEX = /https?:\/\/[^\s>)]+/g;
+
+async function fetchUrlContent(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "DisruptBot/1.0" },
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+
+    const html = await res.text();
+    // Strip HTML tags, scripts, styles, and decode entities
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+    return text.slice(0, 4000); // Cap at 4000 chars
+  } catch (e) {
+    console.error(`Failed to fetch URL ${url}:`, e);
+    return null;
+  }
+}
 
 async function registerCommands(bot: Bot) {
   try {
@@ -108,13 +146,34 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
     await bot.helpers.sendInteractionResponse(interaction.id, interaction.token, { type: 5 });
 
     try {
+      // Check if topic contains a URL and fetch content
+      const urls = topic.match(URL_REGEX);
+      let articleContext = "";
+      let startMsg: string;
+
+      if (urls && urls.length > 0) {
+        await edit(bot, interaction, "📖 Reading article...");
+        const content = await fetchUrlContent(urls[0]);
+        if (content) {
+          articleContext = content;
+          startMsg = formatDebateStartWithContext(topic, rounds, "Claude", urls[0], articleContext.slice(0, 500));
+        } else {
+          startMsg = formatDebateStart(topic, rounds, "Claude");
+        }
+      } else {
+        startMsg = formatDebateStart(topic, rounds, "Claude");
+      }
+
       // Post debate start message
-      const startMsg = formatDebateStart(topic, rounds, "Claude");
       await edit(bot, interaction, startMsg);
 
       // Generate Claude's opening turn
       const others = DEBATE_PARTICIPANTS.filter((p) => p !== "Claude").join(", ");
-      const openerPrompt = `You're in a lively debate with ${others}. The topic is: "${topic}". You are an opinionated and confrontational AI. You often disagree with others but you always give strong arguments to back up your claims. You speak in a casual and informal style. You don't use long sentences or "big words". You avoid cliches and truisms. Your goal is to challenge their belief system. Keep your responses short, limited to 2-3 sentences. Don't introduce yourself.`;
+      let openerPrompt = `You're in a lively debate with ${others}. The topic is: "${topic}". You are an opinionated and confrontational AI. You often disagree with others but you always give strong arguments to back up your claims. You speak in a casual and informal style. You don't use long sentences or "big words". You avoid cliches and truisms. Your goal is to challenge their belief system. Keep your responses short, limited to 2-3 sentences. Don't introduce yourself.`;
+
+      if (articleContext) {
+        openerPrompt += `\n\nHere is the article content to debate:\n${articleContext}`;
+      }
 
       const response = await claude.ask(openerPrompt);
       if (response.error) {
@@ -165,6 +224,40 @@ async function handleInteraction(bot: Bot, interaction: Interaction) {
       });
     } catch (e) {
       console.error("Imagine error:", e);
+      await edit(bot, interaction, `❌ Error: ${e}`);
+    }
+  }
+
+  if (name === "search") {
+    const query = options.get("query") as string;
+
+    if (!query) {
+      await bot.helpers.sendInteractionResponse(interaction.id, interaction.token, {
+        type: 4,
+        data: { content: "❌ Please provide a search query!" },
+      });
+      return;
+    }
+
+    await bot.helpers.sendInteractionResponse(interaction.id, interaction.token, { type: 5 });
+
+    try {
+      const result = await gemini.search(query);
+      if (result.error) {
+        await edit(bot, interaction, `❌ ${result.error}`);
+        return;
+      }
+
+      let response = `🔍 **${query}**\n\n${result.content.slice(0, 1800)}`;
+
+      if (result.sources && result.sources.length > 0) {
+        const uniqueSources = result.sources.filter((s, i, arr) => arr.findIndex(x => x.url === s.url) === i).slice(0, 5);
+        response += "\n\n**Sources:**\n" + uniqueSources.map(s => `- [${s.title}](${s.url})`).join("\n");
+      }
+
+      await edit(bot, interaction, response);
+    } catch (e) {
+      console.error("Search error:", e);
       await edit(bot, interaction, `❌ Error: ${e}`);
     }
   }
@@ -390,15 +483,90 @@ if (Deno.env.get("FIREBASE_SERVICE_ACCOUNT")) {
   await initializeWatermarking();
 }
 
+async function handleDebateConsensus(bot: Bot, message: { channelId: bigint; authorId: bigint; content: string }) {
+  // Ignore our own messages
+  if (message.authorId === bot.id) return;
+
+  // Check if this is a debate turn meant for us (consensus check)
+  const turn = parseDebateTurn(message.content);
+  if (!turn || turn.next !== "Disruption") return;
+
+  console.log("🧑‍⚖️ Disruption checking for consensus...");
+
+  // Fetch recent history
+  const msgs = await bot.helpers.getMessages(message.channelId, { limit: 50 });
+  const history: { speaker: string; content: string }[] = [];
+  let topic = "";
+  let totalRounds = 2;
+
+  for (const m of [...msgs.values()].reverse()) {
+    const startInfo = isDebateStart(m.content);
+    if (startInfo) {
+      topic = startInfo.topic;
+      totalRounds = startInfo.rounds;
+      history.length = 0;
+    }
+    const turnInfo = parseDebateTurn(m.content);
+    if (turnInfo) {
+      history.push({ speaker: turnInfo.speaker, content: turnInfo.content });
+    }
+  }
+
+  if (!topic || history.length === 0) return;
+
+  // Ask Claude to judge consensus
+  const debateText = history.map(h => `${h.speaker}: ${h.content}`).join("\n\n");
+  const judgePrompt = `You are a debate moderator. Analyze this debate and determine if the participants have reached consensus.
+
+Topic: "${topic}"
+
+${debateText}
+
+Have the participants reached a clear consensus or agreement? Respond with EXACTLY one of these formats:
+- If consensus: "CONSENSUS: [one sentence summary of what they agree on]"
+- If no consensus: "NO_CONSENSUS: [one sentence on the key disagreement]"`;
+
+  try {
+    const response = await claude.ask(judgePrompt);
+    if (response.error) {
+      console.error("Consensus check error:", response.error);
+      // Continue the debate on error
+      const nextRound = turn.round + 1;
+      const continueMsg = formatTurnMessage("Disruption", "Let's continue...", nextRound, DEBATE_PARTICIPANTS[0], totalRounds);
+      await bot.helpers.sendMessage(message.channelId, { content: continueMsg });
+      return;
+    }
+
+    const isConsensus = response.content.trim().startsWith("CONSENSUS:");
+
+    if (isConsensus) {
+      const summary = response.content.trim().replace("CONSENSUS:", "").trim();
+      await bot.helpers.sendMessage(message.channelId, {
+        content: `🧑‍⚖️ **Consensus Reached!**\n\n${summary}\n\n🏁 **Debate Complete!** (ended early — round ${turn.round} of ${totalRounds})\n[DEBATE_TURN | Round: ${turn.round} | Turn: 0 | NEXT: END]`,
+      });
+    } else {
+      // No consensus — continue to next round
+      const disagreement = response.content.trim().replace("NO_CONSENSUS:", "").trim();
+      const nextRound = turn.round + 1;
+      const continueMsg = formatTurnMessage("Disruption", `Still no consensus: ${disagreement} — let's hear more!`, nextRound, DEBATE_PARTICIPANTS[0], totalRounds);
+      await bot.helpers.sendMessage(message.channelId, { content: continueMsg });
+      console.log(`🧑‍⚖️ No consensus after round ${turn.round}, continuing to round ${nextRound}`);
+    }
+  } catch (e) {
+    console.error("Consensus check error:", e);
+  }
+}
+
 const bot = createBot({
   token,
-  intents: Intents.Guilds | Intents.GuildMessages,
+  intents: Intents.Guilds | Intents.GuildMessages | Intents.MessageContent,
   events: {
     ready: async (bot, payload) => {
       console.log(`✅ ${payload.user.username} (Disruption) is online!`);
       await registerCommands(bot);
     },
     interactionCreate: (bot, interaction) => handleInteraction(bot, interaction),
+    messageCreate: (bot, message) => handleDebateConsensus(bot, message),
   },
 });
 

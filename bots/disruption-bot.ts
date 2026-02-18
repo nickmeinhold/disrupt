@@ -545,9 +545,17 @@ Have the participants reached a clear consensus or agreement? Respond with EXACT
         content: `🧑‍⚖️ **Consensus Reached!**\n\n${summary}\n\n🏁 **Debate Complete!** (ended early — round ${turn.round} of ${totalRounds})\n[DEBATE_TURN | Round: ${turn.round} | Turn: 0 | NEXT: END]`,
       });
     } else {
-      // No consensus — continue to next round
+      // No consensus — continue to next round (if rounds remain)
       const disagreement = response.content.trim().replace("NO_CONSENSUS:", "").trim();
       const nextRound = turn.round + 1;
+
+      if (nextRound > totalRounds) {
+        await bot.helpers.sendMessage(message.channelId, {
+          content: `🧑‍⚖️ **No consensus reached.**\n\n${disagreement}\n\n🏁 **Debate Complete!** (${totalRounds} rounds)\n[DEBATE_TURN | Round: ${turn.round} | Turn: 0 | NEXT: END]`,
+        });
+        return;
+      }
+
       const continueMsg = formatTurnMessage("Disruption", `Still no consensus: ${disagreement} — let's hear more!`, nextRound, DEBATE_PARTICIPANTS[0], totalRounds);
       await bot.helpers.sendMessage(message.channelId, { content: continueMsg });
       console.log(`🧑‍⚖️ No consensus after round ${turn.round}, continuing to round ${nextRound}`);
